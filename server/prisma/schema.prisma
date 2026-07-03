@@ -1,0 +1,109 @@
+// Prisma schema for the realtime quiz app.
+// Using SQLite for a zero-config local MVP; swap the datasource to PostgreSQL
+// for production without touching the models (field types are compatible).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String // "organizer" | "participant"
+  nickname     String
+  createdAt    DateTime @default(now())
+
+  quizzes        Quiz[]
+  participations SessionParticipant[]
+}
+
+model Quiz {
+  id                     String   @id @default(cuid())
+  ownerId                String
+  title                  String
+  description            String   @default("")
+  category               String   @default("General")
+  defaultTimePerQuestion Int      @default(20) // seconds
+  allowAnswerChange      Boolean  @default(false)
+  speedBonus             Boolean  @default(true)
+  createdAt              DateTime @default(now())
+
+  owner     User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  questions Question[]
+  sessions  QuizSession[]
+}
+
+model Question {
+  id         String  @id @default(cuid())
+  quizId     String
+  type       String // "text" | "image"
+  answerType String // "single" | "multiple"
+  text       String
+  imageUrl   String?
+  timeLimit  Int? // seconds; null -> use quiz default
+  orderIndex Int
+
+  quiz    Quiz                @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options AnswerOption[]
+  answers ParticipantAnswer[]
+}
+
+model AnswerOption {
+  id         String  @id @default(cuid())
+  questionId String
+  text       String
+  isCorrect  Boolean @default(false)
+  orderIndex Int     @default(0)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model QuizSession {
+  id         String    @id @default(cuid())
+  quizId     String
+  roomCode   String    @unique
+  status     String    @default("pending") // pending | active | finished
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  quiz         Quiz                 @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  participants SessionParticipant[]
+  answers      ParticipantAnswer[]
+}
+
+model SessionParticipant {
+  id        String   @id @default(cuid())
+  sessionId String
+  userId    String? // null for guest participants
+  nickname  String
+  score     Int      @default(0)
+  joinedAt  DateTime @default(now())
+
+  session QuizSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  answers ParticipantAnswer[]
+}
+
+model ParticipantAnswer {
+  id                String   @id @default(cuid())
+  sessionId         String
+  questionId        String
+  participantId     String
+  selectedOptionIds String // JSON-encoded array of option ids (SQLite has no array type)
+  isCorrect         Boolean
+  scoreAwarded      Int
+  answeredAt        DateTime @default(now())
+
+  session     QuizSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question    Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  participant SessionParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId, participantId])
+}
