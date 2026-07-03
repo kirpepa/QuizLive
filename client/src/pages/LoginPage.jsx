@@ -27,10 +27,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-md">
       <div className="card">
-        <h1 className="mb-1 text-2xl font-bold">Вход</h1>
-        <p className="mb-5 text-sm text-slate-500">
-          Демо-организатор: <b>demo@quiz.dev</b> / <b>password123</b>
-        </p>
+        <h1 className="mb-5 text-2xl font-bold">Вход</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="label">Email</label>

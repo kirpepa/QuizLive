@@ -19,6 +19,7 @@ export default function PlayPage() {
   const [reveal, setReveal] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const participantIdRef = useRef(null);
+  const joiningRef = useRef(false);
 
   useEffect(() => {
     if (!code || !nickname) {
@@ -29,28 +30,37 @@ export default function PlayPage() {
     const storageKey = `participant_${code}`;
 
     async function join() {
-      const res = await emitAck('room:join', {
-        roomCode: code,
-        nickname,
-        token: tokenStore.access,
-        participantId: localStorage.getItem(storageKey),
-      });
-      if (res.error) {
-        setError(res.error);
-        return;
-      }
-      participantIdRef.current = res.participantId;
-      localStorage.setItem(storageKey, res.participantId);
-      setQuizTitle(res.quizTitle);
-      setLeaderboard(res.leaderboard || []);
-      if (res.currentQuestion) {
-        setQuestion(res.currentQuestion);
-        setSelected([]);
-        setPhase('question');
-      } else if (res.status === 'finished') {
-        setPhase('finished');
-      } else {
-        setPhase('waiting');
+      // Serialize joins: without this guard, the initial call plus the
+      // `connect` event (and React StrictMode's double-mount) can fire several
+      // joins before a participantId is persisted — each creating a duplicate.
+      if (joiningRef.current) return;
+      joiningRef.current = true;
+      try {
+        const res = await emitAck('room:join', {
+          roomCode: code,
+          nickname,
+          token: tokenStore.access,
+          participantId: participantIdRef.current || localStorage.getItem(storageKey),
+        });
+        if (res.error) {
+          setError(res.error);
+          return;
+        }
+        participantIdRef.current = res.participantId;
+        localStorage.setItem(storageKey, res.participantId);
+        setQuizTitle(res.quizTitle);
+        setLeaderboard(res.leaderboard || []);
+        if (res.currentQuestion) {
+          setQuestion(res.currentQuestion);
+          setSelected([]);
+          setPhase('question');
+        } else if (res.status === 'finished') {
+          setPhase('finished');
+        } else {
+          setPhase('waiting');
+        }
+      } finally {
+        joiningRef.current = false;
       }
     }
 
@@ -76,12 +86,19 @@ export default function PlayPage() {
       setPhase('finished');
     };
 
+    // Only re-join on genuine reconnects (after we've already joined once).
+    // The very first connection is handled by the direct join() call below,
+    // so we avoid a duplicate join before participantId exists.
+    const onReconnect = () => {
+      if (participantIdRef.current) join();
+    };
+
     socket.on('question:show', onShow);
     socket.on('question:answered_ack', onAck);
     socket.on('question:result', onResult);
     socket.on('question:reveal', onReveal);
     socket.on('quiz:finish', onFinish);
-    socket.on('connect', join); // rejoin transparently after a reconnect
+    socket.on('connect', onReconnect);
     join();
 
     return () => {
@@ -90,7 +107,7 @@ export default function PlayPage() {
       socket.off('question:result', onResult);
       socket.off('question:reveal', onReveal);
       socket.off('quiz:finish', onFinish);
-      socket.off('connect', join);
+      socket.off('connect', onReconnect);
     };
   }, [code, nickname, navigate]);
 
