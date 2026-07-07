@@ -191,21 +191,32 @@ export default function PlayPage() {
               className="max-h-56 w-full rounded-lg border border-slate-200 object-contain"
             />
           )}
-          <div className="grid gap-2">
-            {question.options.map((o) => {
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {question.options.map((o, idx) => {
               const isSelected = selected.includes(o.id);
               return (
                 <button
                   key={o.id}
                   onClick={() => toggleOption(o.id)}
                   disabled={phase === 'answered'}
-                  className={`rounded-lg border px-4 py-3 text-left transition ${
+                  className={`group flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left transition-all disabled:opacity-60 ${
                     isSelected
-                      ? 'border-brand-500 bg-brand-50 font-medium text-brand-700'
-                      : 'border-slate-300 bg-white hover:bg-slate-50'
-                  } disabled:opacity-60`}
+                      ? 'border-brand-500 bg-brand-50 shadow-sm'
+                      : 'border-line bg-white hover:border-brand-300 hover:bg-brand-50/40'
+                  }`}
                 >
-                  {o.text}
+                  <span
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold transition ${
+                      isSelected
+                        ? 'bg-brand-500 text-white'
+                        : 'bg-canvas text-muted group-hover:bg-brand-100 group-hover:text-brand-600'
+                    }`}
+                  >
+                    {String.fromCharCode(65 + idx)}
+                  </span>
+                  <span className={`text-[15px] ${isSelected ? 'font-semibold text-brand-700' : 'font-medium text-ink'}`}>
+                    {o.text}
+                  </span>
                 </button>
               );
             })}

@@ -35,17 +35,22 @@ export default function JoinPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <div className="card">
-        <h1 className="mb-1 text-2xl font-bold">Присоединиться к квизу</h1>
-        <p className="mb-5 text-sm text-slate-500">
-          Введите код комнаты от организатора и придумайте никнейм.
+    <div className="mx-auto max-w-md animate-fade-in-up py-6">
+      <div className="mb-6 text-center">
+        <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-2xl shadow-card">
+          🎮
+        </div>
+        <h1 className="text-2xl font-bold">Присоединиться к квизу</h1>
+        <p className="mt-1.5 text-sm text-muted">
+          Введите код комнаты от ведущего и своё имя
         </p>
+      </div>
+      <div className="card">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="label">Код комнаты</label>
             <input
-              className="input text-center text-2xl font-bold uppercase tracking-widest"
+              className="input text-center text-3xl font-extrabold uppercase tracking-[0.4em] placeholder:tracking-normal placeholder:text-xl"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               maxLength={6}
@@ -54,7 +59,7 @@ export default function JoinPage() {
             />
           </div>
           <div>
-            <label className="label">Ваш никнейм</label>
+            <label className="label">Ваше имя</label>
             <input
               className="input"
               value={nickname}
@@ -63,14 +68,16 @@ export default function JoinPage() {
               required
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" className="btn-primary w-full" disabled={busy}>
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          )}
+          <button type="submit" className="btn-primary w-full text-base" disabled={busy}>
             {busy ? 'Проверяем…' : 'Войти в комнату'}
           </button>
         </form>
         {!user && (
-          <p className="mt-4 text-center text-xs text-slate-500">
-            Можно играть без регистрации. Но история сохранится только у
+          <p className="mt-4 text-center text-xs leading-relaxed text-muted">
+            Можно играть без регистрации. История игр сохраняется только у
             зарегистрированных участников.
           </p>
         )}

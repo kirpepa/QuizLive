@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import Logo from '../components/Logo.jsx';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -25,9 +26,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="mx-auto max-w-md animate-fade-in-up py-6">
+      <div className="mb-6 flex flex-col items-center text-center">
+        <Logo size="lg" />
+        <p className="mt-3 text-sm text-muted">Войдите, чтобы создавать и вести квизы</p>
+      </div>
       <div className="card">
-        <h1 className="mb-5 text-2xl font-bold">Вход</h1>
+        <h1 className="mb-5 text-xl font-bold">Вход в аккаунт</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="label">Email</label>
@@ -49,14 +54,16 @@ export default function LoginPage() {
               required
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          )}
           <button type="submit" className="btn-primary w-full" disabled={busy}>
             {busy ? 'Входим…' : 'Войти'}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-slate-500">
+        <p className="mt-5 text-center text-sm text-muted">
           Нет аккаунта?{' '}
-          <Link to="/register" className="font-medium text-brand-600">
+          <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">
             Зарегистрироваться
           </Link>
         </p>

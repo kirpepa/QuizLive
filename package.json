@@ -2,7 +2,7 @@
   "name": "quizlive",
   "version": "1.0.0",
   "private": true,
-  "description": "Realtime quiz web app (Kahoot-style) — monorepo with Express/Socket.IO server and React/Vite client.",
+  "description": "",
   "scripts": {
     "install:all": "npm install --prefix server && npm install --prefix client",
     "setup:server": "npm run prisma:migrate --prefix server && npm run seed --prefix server",

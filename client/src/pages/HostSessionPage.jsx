@@ -116,14 +116,22 @@ export default function HostSessionPage() {
       </div>
 
       {/* Room code — always visible while running */}
-      <div className="card flex flex-wrap items-center justify-between gap-4 bg-brand-50">
-        <div>
-          <p className="text-sm text-slate-500">Код комнаты</p>
-          <p className="text-4xl font-black tracking-widest text-brand-700">{roomCode || '…'}</p>
-        </div>
-        <div className="text-right text-sm text-slate-500">
-          <p>Ссылка для входа:</p>
-          <p className="font-medium text-brand-700">{joinUrl}</p>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 p-6 text-white shadow-card sm:p-8">
+        <div className="pointer-events-none absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+        <div className="relative flex flex-wrap items-center justify-between gap-6">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-white/70">
+              Код комнаты
+            </p>
+            <p className="mt-1 text-6xl font-black tracking-[0.15em] tabular-nums">
+              {roomCode || '…'}
+            </p>
+          </div>
+          <div className="text-sm text-white/80">
+            <p className="mb-1">Зайдите на сайт и введите код,</p>
+            <p className="mb-1">или откройте ссылку:</p>
+            <p className="font-semibold text-white">{joinUrl}</p>
+          </div>
         </div>
       </div>
 
@@ -138,14 +146,23 @@ export default function HostSessionPage() {
             </button>
           </div>
           {participants.length === 0 ? (
-            <p className="text-sm text-slate-500">Ожидаем участников…</p>
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <span className="relative flex h-3 w-3">
+                <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-brand-400 opacity-75" />
+                <span className="inline-flex h-3 w-3 rounded-full bg-brand-500" />
+              </span>
+              <p className="text-sm text-muted">Ожидаем участников…</p>
+            </div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {participants.map((p) => (
                 <span
                   key={p.participantId}
-                  className="rounded-full bg-white px-3 py-1 text-sm shadow-sm"
+                  className="inline-flex animate-pop-in items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm font-medium shadow-sm"
                 >
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-500 text-[11px] font-bold text-white">
+                    {p.nickname[0]?.toUpperCase()}
+                  </span>
                   {p.nickname}
                 </span>
               ))}
@@ -177,10 +194,16 @@ export default function HostSessionPage() {
               className="max-h-64 rounded-lg border border-slate-200"
             />
           )}
-          <div className="grid gap-2 sm:grid-cols-2">
-            {question.options.map((o) => (
-              <div key={o.id} className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                {o.text}
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {question.options.map((o, idx) => (
+              <div
+                key={o.id}
+                className="flex items-center gap-3 rounded-2xl border-2 border-line bg-white px-4 py-3.5"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-canvas text-sm font-bold text-muted">
+                  {String.fromCharCode(65 + idx)}
+                </span>
+                <span className="text-[15px] font-medium">{o.text}</span>
               </div>
             ))}
           </div>

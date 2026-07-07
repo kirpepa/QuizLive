@@ -3,31 +3,48 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: 'ss01';
   }
 }
 
 @layer components {
+  /* Buttons — VKUI style: solid accent primary, soft filled secondary. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[15px] font-semibold leading-none transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-100 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45;
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+    @apply btn bg-brand-500 text-white shadow-sm hover:bg-brand-600 active:bg-brand-700;
   }
   .btn-secondary {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-100;
+    @apply btn bg-brand-50 text-brand-600 hover:bg-brand-100;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-muted hover:bg-black/5;
   }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700;
+    @apply btn bg-[#ff3347] text-white hover:bg-[#e51e32];
   }
+
+  /* Surfaces */
   .card {
-    @apply rounded-xl border border-slate-200 bg-white p-5 shadow-sm;
+    @apply rounded-2xl border border-line bg-white p-6 shadow-card;
   }
+
+  /* Form controls */
   .input {
-    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100;
+    @apply w-full rounded-xl border border-[#d7dce1] bg-white px-3.5 py-2.5 text-[15px] text-ink outline-none transition placeholder:text-muted/70 focus:border-brand-500 focus:ring-4 focus:ring-brand-100;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1.5 block text-[13px] font-medium text-muted;
+  }
+
+  /* Small pill tag */
+  .chip {
+    @apply inline-flex items-center rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-600;
   }
 }
