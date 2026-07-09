@@ -33,8 +33,12 @@ export default function HostSessionPage() {
       setQuizTitle(res.quizTitle);
       setParticipants(res.participants || []);
       setLeaderboard(res.leaderboard || []);
-      if (res.currentQuestion) {
-        setQuestion(res.currentQuestion);
+      if (res.currentQuestion) setQuestion(res.currentQuestion);
+      if (res.status === 'reveal') {
+        // Reconnected mid-reveal: restore the correct answers + leaderboard.
+        setReveal(res.reveal || null);
+        setPhase('reveal');
+      } else if (res.currentQuestion) {
         setPhase('question');
       } else {
         setPhase(res.status === 'lobby' ? 'lobby' : res.status);

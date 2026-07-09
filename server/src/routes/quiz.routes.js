@@ -29,6 +29,13 @@ const quizInclude = {
   },
 };
 
+// Coerce a per-question time into a sane 5–300s range; fall back on bad input.
+function clampTime(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(300, Math.max(5, Math.round(n)));
+}
+
 // Validates and normalizes a question payload. Returns { data } or { error }.
 function normalizeQuestion(body, orderIndex) {
   const type = body.type === 'image' ? 'image' : 'text';
@@ -55,17 +62,27 @@ function normalizeQuestion(body, orderIndex) {
   if (answerType === 'single' && correctCount !== 1) {
     return { error: 'Для одиночного выбора должен быть ровно один правильный вариант' };
   }
+  if (answerType === 'multiple' && correctCount < 2) {
+    return { error: 'Для множественного выбора отметьте не меньше двух правильных вариантов' };
+  }
+
+  const imageUrl = body.imageUrl || null;
+  if (type === 'image' && !imageUrl) {
+    return { error: 'Загрузите изображение для вопроса этого типа' };
+  }
+
+  // Optional per-question time limit: must be a positive integer if provided.
+  let timeLimit = null;
+  if (body.timeLimit !== null && body.timeLimit !== undefined && body.timeLimit !== '') {
+    const t = Number(body.timeLimit);
+    if (!Number.isFinite(t) || t < 5 || t > 300) {
+      return { error: 'Время на вопрос должно быть от 5 до 300 секунд' };
+    }
+    timeLimit = Math.round(t);
+  }
 
   return {
-    data: {
-      type,
-      answerType,
-      text,
-      imageUrl: body.imageUrl || null,
-      timeLimit: body.timeLimit ? Number(body.timeLimit) : null,
-      orderIndex,
-      options: cleaned,
-    },
+    data: { type, answerType, text, imageUrl, timeLimit, orderIndex, options: cleaned },
   };
 }
 
@@ -91,7 +108,7 @@ router.post('/', async (req, res) => {
       title: title.trim(),
       description: (description || '').trim(),
       category: (category || 'Общая').trim(),
-      defaultTimePerQuestion: Number(req.body.defaultTimePerQuestion) || 20,
+      defaultTimePerQuestion: clampTime(req.body.defaultTimePerQuestion, 20),
       allowAnswerChange: Boolean(req.body.allowAnswerChange),
       speedBonus: req.body.speedBonus === undefined ? true : Boolean(req.body.speedBonus),
     },
@@ -123,7 +140,9 @@ router.put('/:id', async (req, res) => {
       description: b.description !== undefined ? String(b.description).trim() : undefined,
       category: b.category !== undefined ? String(b.category).trim() : undefined,
       defaultTimePerQuestion:
-        b.defaultTimePerQuestion !== undefined ? Number(b.defaultTimePerQuestion) : undefined,
+        b.defaultTimePerQuestion !== undefined
+          ? clampTime(b.defaultTimePerQuestion, owned.defaultTimePerQuestion)
+          : undefined,
       allowAnswerChange:
         b.allowAnswerChange !== undefined ? Boolean(b.allowAnswerChange) : undefined,
       speedBonus: b.speedBonus !== undefined ? Boolean(b.speedBonus) : undefined,
@@ -146,8 +165,15 @@ router.post('/:id/questions', async (req, res) => {
   const owned = await loadOwnedQuiz(req, res);
   if (!owned) return;
 
-  const count = await prisma.question.count({ where: { quizId: owned.id } });
-  const norm = normalizeQuestion(req.body || {}, count);
+  // Place after the current last question. Using max(orderIndex)+1 (not count)
+  // avoids collisions when earlier questions were deleted without reindexing.
+  const last = await prisma.question.findFirst({
+    where: { quizId: owned.id },
+    orderBy: { orderIndex: 'desc' },
+    select: { orderIndex: true },
+  });
+  const nextOrder = last ? last.orderIndex + 1 : 0;
+  const norm = normalizeQuestion(req.body || {}, nextOrder);
   if (norm.error) return res.status(400).json({ error: norm.error });
 
   const { options, ...questionData } = norm.data;
@@ -171,7 +197,7 @@ router.put('/:id/questions/:qid', async (req, res) => {
   if (norm.error) return res.status(400).json({ error: norm.error });
 
   const { options, ...questionData } = norm.data;
-  // Replace options wholesale — simplest correct approach for an MVP editor.
+  // Replace the question's options wholesale.
   const question = await prisma.$transaction(async (tx) => {
     await tx.answerOption.deleteMany({ where: { questionId: existing.id } });
     return tx.question.update({

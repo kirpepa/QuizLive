@@ -19,15 +19,20 @@ export default function JoinPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setBusy(true);
     const cleanCode = code.trim().toUpperCase();
+    const cleanNick = nickname.trim();
+    if (!cleanNick) {
+      setError('Введите имя');
+      return;
+    }
+    setBusy(true);
     try {
       // Validate the room exists and is joinable before opening the socket.
       const { session } = await api(`/api/sessions/room/${cleanCode}`);
       if (session.status === 'finished') {
         throw new Error('Этот квиз уже завершён');
       }
-      navigate('/play', { state: { code: cleanCode, nickname: nickname.trim() } });
+      navigate('/play', { state: { code: cleanCode, nickname: cleanNick } });
     } catch (err) {
       setError(err.message);
       setBusy(false);

@@ -19,6 +19,7 @@ export default function PlayPage() {
   const [reveal, setReveal] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const participantIdRef = useRef(null);
+  const rejoinTokenRef = useRef(null);
   const joiningRef = useRef(false);
 
   useEffect(() => {
@@ -27,7 +28,8 @@ export default function PlayPage() {
       return;
     }
     const socket = getSocket();
-    const storageKey = `participant_${code}`;
+    const idKey = `participant_${code}`;
+    const tokenKey = `rejoin_${code}`;
 
     async function join() {
       // Serialize joins: without this guard, the initial call plus the
@@ -40,17 +42,25 @@ export default function PlayPage() {
           roomCode: code,
           nickname,
           token: tokenStore.access,
-          participantId: participantIdRef.current || localStorage.getItem(storageKey),
+          participantId: participantIdRef.current || localStorage.getItem(idKey),
+          rejoinToken: rejoinTokenRef.current || localStorage.getItem(tokenKey),
         });
         if (res.error) {
           setError(res.error);
           return;
         }
         participantIdRef.current = res.participantId;
-        localStorage.setItem(storageKey, res.participantId);
+        rejoinTokenRef.current = res.rejoinToken;
+        localStorage.setItem(idKey, res.participantId);
+        if (res.rejoinToken) localStorage.setItem(tokenKey, res.rejoinToken);
         setQuizTitle(res.quizTitle);
         setLeaderboard(res.leaderboard || []);
-        if (res.currentQuestion) {
+        if (res.status === 'reveal') {
+          // Reconnected mid-reveal: restore the correct answers + leaderboard.
+          if (res.currentQuestion) setQuestion(res.currentQuestion);
+          setReveal(res.reveal || null);
+          setPhase('reveal');
+        } else if (res.currentQuestion) {
           setQuestion(res.currentQuestion);
           setSelected([]);
           setPhase('question');
@@ -252,9 +262,36 @@ export default function PlayPage() {
                 </p>
               </>
             ) : (
-              <p className="text-slate-500">Вы не ответили на этот вопрос.</p>
+              <p className="text-slate-500">Результаты вопроса</p>
             )}
           </div>
+          {question && reveal && (
+            <div className="card">
+              <h2 className="mb-3 font-semibold">Правильный ответ</h2>
+              <div className="grid gap-2">
+                {question.options.map((o) => {
+                  const isCorrect = reveal.correctOptionIds?.includes(o.id);
+                  const chosen = selected.includes(o.id);
+                  return (
+                    <div
+                      key={o.id}
+                      className={`flex items-center justify-between rounded-xl border-2 px-4 py-2.5 text-[15px] ${
+                        isCorrect
+                          ? 'border-green-400 bg-green-50 font-medium text-green-800'
+                          : 'border-line bg-white text-slate-500'
+                      }`}
+                    >
+                      <span>
+                        {isCorrect ? '✓ ' : ''}
+                        {o.text}
+                      </span>
+                      {chosen && <span className="text-xs text-muted">ваш выбор</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="card">
             <h2 className="mb-3 font-semibold">Лидерборд</h2>
             <Leaderboard entries={leaderboard} highlightId={participantIdRef.current} />

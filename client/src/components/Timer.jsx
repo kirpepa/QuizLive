@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 // Countdown synced to the server clock. The server sends `endsAt` and its own
 // `serverNow`; we translate the deadline into the client's clock to neutralize
@@ -9,15 +9,15 @@ export default function Timer({ endsAt, serverNow, timeLimitMs }) {
     [endsAt, serverNow]
   );
   const [remaining, setRemaining] = useState(Math.max(0, clientEnd - Date.now()));
-  const raf = useRef();
 
   useEffect(() => {
-    function tick() {
+    // A 250ms interval is smooth enough for the bar, far lighter than rAF, and
+    // (unlike rAF) keeps advancing when the tab is backgrounded.
+    setRemaining(Math.max(0, clientEnd - Date.now()));
+    const id = setInterval(() => {
       setRemaining(Math.max(0, clientEnd - Date.now()));
-      raf.current = requestAnimationFrame(tick);
-    }
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
+    }, 250);
+    return () => clearInterval(id);
   }, [clientEnd]);
 
   const seconds = Math.ceil(remaining / 1000);

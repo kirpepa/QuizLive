@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "e2e": "node e2e-test.mjs"
+    "test:e2e": "node e2e-test.mjs",
+    "test:api": "node api-test.mjs",
+    "test:security": "node security-test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -26,6 +26,13 @@ export function AuthProvider({ children }) {
     bootstrap();
   }, []);
 
+  // The API layer dispatches this when a session can no longer be refreshed.
+  useEffect(() => {
+    const onForcedLogout = () => setUser(null);
+    window.addEventListener('auth:logout', onForcedLogout);
+    return () => window.removeEventListener('auth:logout', onForcedLogout);
+  }, []);
+
   async function login(email, password) {
     const data = await api('/api/auth/login', {
       method: 'POST',

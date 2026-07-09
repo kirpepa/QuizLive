@@ -1,11 +1,10 @@
+import { nanoid } from 'nanoid';
 import { prisma } from '../db.js';
 import { verifyAccessToken } from '../auth/jwt.js';
 import { isAnswerCorrect, computeScore } from '../lib/scoring.js';
 
-// In-memory state for every live room, keyed by roomCode. This is the source of
-// truth for an in-progress session; results are persisted to the DB at reveal
-// time. For a single-process MVP this is fine — scaling out would require a
-// shared store (e.g. Redis) with a Socket.IO adapter.
+// In-memory state for every live room, keyed by roomCode. Holds the state of an
+// in-progress session; results are persisted to the DB at reveal time.
 const liveRooms = new Map();
 
 // ----- helpers ---------------------------------------------------------------
@@ -98,6 +97,7 @@ export function initSockets(io) {
             questionTimeLimitMs: null,
             timer: null,
             answers: new Map(), // participantId -> { optionIds, correct, score }
+            lastReveal: null, // cached reveal payload for mid-reveal reconnects
           };
           liveRooms.set(session.roomCode, room);
         } else {
@@ -113,7 +113,9 @@ export function initSockets(io) {
           quizTitle: session.quiz.title,
           status: room.status,
           participants: participantList(room),
-          currentQuestion: room.status === 'question' ? publicQuestion(room) : null,
+          currentQuestion:
+            room.status === 'question' || room.status === 'reveal' ? publicQuestion(room) : null,
+          reveal: room.status === 'reveal' ? room.lastReveal : null,
           leaderboard: leaderboard(room),
         });
       } catch {
@@ -122,7 +124,7 @@ export function initSockets(io) {
     });
 
     // ---- participant joins a room ------------------------------------------
-    socket.on('room:join', async ({ roomCode, nickname, token, participantId }, cb) => {
+    socket.on('room:join', async ({ roomCode, nickname, token, participantId, rejoinToken }, cb) => {
       const code = (roomCode || '').toUpperCase();
       const room = liveRooms.get(code);
       const dbSession = await prisma.quizSession.findUnique({ where: { roomCode: code } });
@@ -143,8 +145,28 @@ export function initSockets(io) {
         }
       }
 
-      // Reconnect path: known participantId that belongs to this room.
-      let participant = participantId ? room.participants.get(participantId) : null;
+      // Resolve the participant. Reconnecting to an existing entry is only
+      // allowed if the caller proves ownership — either a matching rejoinToken
+      // (issued on first join) or the same authenticated userId. This prevents
+      // hijacking another player by guessing their (broadcast) participantId.
+      let participant = null;
+      if (participantId) {
+        const existing = room.participants.get(participantId);
+        if (
+          existing &&
+          ((rejoinToken && existing.rejoinToken === rejoinToken) ||
+            (userId && existing.userId === userId))
+        ) {
+          participant = existing;
+        }
+      }
+      // Dedup: a logged-in user always maps to a single participant per session,
+      // even if they refreshed and lost their participantId/rejoinToken.
+      if (!participant && userId) {
+        participant =
+          [...room.participants.values()].find((p) => p.userId === userId) || null;
+      }
+
       if (participant) {
         participant.socketId = socket.id;
         participant.connected = true;
@@ -161,6 +183,7 @@ export function initSockets(io) {
           socketId: socket.id,
           score: 0,
           connected: true,
+          rejoinToken: nanoid(), // secret proof for future reconnects
         };
         room.participants.set(participant.id, participant);
       }
@@ -172,10 +195,13 @@ export function initSockets(io) {
       cb?.({
         ok: true,
         participantId: participant.id,
+        rejoinToken: participant.rejoinToken,
         nickname: participant.nickname,
         status: room.status,
         quizTitle: room.quiz.title,
-        currentQuestion: room.status === 'question' ? publicQuestion(room) : null,
+        currentQuestion:
+          room.status === 'question' || room.status === 'reveal' ? publicQuestion(room) : null,
+        reveal: room.status === 'reveal' ? room.lastReveal : null,
         leaderboard: leaderboard(room),
       });
 
@@ -276,10 +302,14 @@ export function initSockets(io) {
         total: [...room.participants.values()].filter((p) => p.connected).length,
       });
 
-      // Auto-reveal once every connected participant has answered.
-      const connected = [...room.participants.values()].filter((p) => p.connected);
-      if (connected.length > 0 && connected.every((p) => room.answers.has(p.id))) {
-        await revealQuestion(io, room);
+      // Auto-reveal once every connected participant has answered — but only
+      // when answers are final. If the quiz allows changing answers, we must
+      // keep the window open until the timer (or the organizer) ends it.
+      if (!room.quiz.allowAnswerChange) {
+        const connected = [...room.participants.values()].filter((p) => p.connected);
+        if (connected.length > 0 && connected.every((p) => room.answers.has(p.id))) {
+          await revealQuestion(io, room);
+        }
       }
     });
 
@@ -384,12 +414,14 @@ async function revealQuestion(io, room) {
     // Persistence failures shouldn't break the live flow; results stay in memory.
   }
 
-  io.to(room.roomCode).emit('question:reveal', {
+  const revealPayload = {
     questionId: q.id,
     correctOptionIds: correctIds,
     leaderboard: leaderboard(room),
     isLast: room.currentIndex + 1 >= room.quiz.questions.length,
-  });
+  };
+  room.lastReveal = revealPayload; // cached so mid-reveal reconnects can sync
+  io.to(room.roomCode).emit('question:reveal', revealPayload);
 
   // Tell each participant whether they were right this round.
   for (const [participantId, ans] of room.answers.entries()) {

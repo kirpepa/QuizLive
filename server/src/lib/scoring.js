@@ -1,8 +1,8 @@
 export const BASE_POINTS = 1000;
 
 // Compares a participant's chosen options against the correct set.
-// MVP rule: all-or-nothing — for multiple-choice the selection must match the
-// correct set exactly (no partial credit). This keeps scoring predictable.
+// All-or-nothing: for multiple-choice the selection must match the correct set
+// exactly (no partial credit).
 export function isAnswerCorrect(correctOptionIds, selectedOptionIds) {
   const correct = new Set(correctOptionIds);
   const selected = new Set(selectedOptionIds);

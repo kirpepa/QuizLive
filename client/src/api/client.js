@@ -26,18 +26,35 @@ export function assetUrl(path) {
   return path.startsWith('http') ? path : `${API_URL}${path}`;
 }
 
-async function refreshAccessToken() {
-  const refresh = tokenStore.refresh;
-  if (!refresh) return false;
-  const res = await fetch(`${API_URL}/api/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: refresh }),
+let refreshPromise = null;
+
+// Refreshes the access token. Single-flight: concurrent 401s share one request
+// instead of firing several parallel /refresh calls.
+function refreshAccessToken() {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const refresh = tokenStore.refresh;
+    if (!refresh) return false;
+    const res = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    tokenStore.set(data.accessToken, data.refreshToken);
+    return true;
+  })().finally(() => {
+    refreshPromise = null;
   });
-  if (!res.ok) return false;
-  const data = await res.json();
-  tokenStore.set(data.accessToken, data.refreshToken);
-  return true;
+  return refreshPromise;
+}
+
+// Forces a logout when the session can no longer be refreshed. AuthProvider
+// listens for this event to clear the user and let ProtectedRoute redirect.
+function forceLogout() {
+  tokenStore.clear();
+  window.dispatchEvent(new Event('auth:logout'));
 }
 
 // Core request helper. Adds the bearer token, parses JSON, throws on error,
@@ -57,6 +74,8 @@ export async function api(path, { method = 'GET', body, isForm = false, _retry =
   if (res.status === 401 && !_retry && tokenStore.refresh) {
     const ok = await refreshAccessToken();
     if (ok) return api(path, { method, body, isForm, _retry: true });
+    // Refresh token is gone/expired — end the session cleanly.
+    forceLogout();
   }
 
   const data = res.status === 204 ? null : await res.json().catch(() => null);

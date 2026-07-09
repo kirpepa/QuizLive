@@ -21,11 +21,17 @@ router.post('/', requireAuth, requireRole('organizer'), async (req, res) => {
   }
 
   // Generate a unique room code (retry on the rare collision).
-  let roomCode;
-  for (let i = 0; i < 5; i += 1) {
-    roomCode = generateRoomCode();
-    const clash = await prisma.quizSession.findUnique({ where: { roomCode } });
-    if (!clash) break;
+  let roomCode = null;
+  for (let i = 0; i < 8; i += 1) {
+    const candidate = generateRoomCode();
+    const clash = await prisma.quizSession.findUnique({ where: { roomCode: candidate } });
+    if (!clash) {
+      roomCode = candidate;
+      break;
+    }
+  }
+  if (!roomCode) {
+    return res.status(503).json({ error: 'Не удалось сгенерировать код комнаты, попробуйте ещё раз' });
   }
 
   const session = await prisma.quizSession.create({

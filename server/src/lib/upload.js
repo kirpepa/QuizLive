@@ -10,9 +10,8 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Local disk storage for MVP. The rest of the app only depends on the returned
-// public URL (`/uploads/<file>`), so this can be swapped for S3/Cloud storage
-// later without touching route/controller code.
+// Local disk storage; the app only depends on the returned public URL
+// (`/uploads/<file>`).
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
@@ -28,7 +27,6 @@ export const uploadImage = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (_req, file, cb) => {
-    // TODO(post-MVP): validate actual file content (magic bytes), not just mime.
     if (ALLOWED.has(file.mimetype)) cb(null, true);
     else cb(new Error('Недопустимый тип файла (только PNG, JPEG, WEBP, GIF)'));
   },

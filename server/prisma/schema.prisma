@@ -1,6 +1,4 @@
 // Prisma schema for the realtime quiz app.
-// Using SQLite for a zero-config local MVP; swap the datasource to PostgreSQL
-// for production without touching the models (field types are compatible).
 
 generator client {
   provider = "prisma-client-js"

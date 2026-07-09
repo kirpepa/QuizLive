@@ -33,6 +33,16 @@ export default function QuestionForm({ quizId, question, onSaved, onCancel }) {
     }
   }
 
+  // Switching to single-choice must leave at most one correct option, otherwise
+  // the (now radio) inputs render several as checked and the server rejects it.
+  function changeAnswerType(next) {
+    setAnswerType(next);
+    if (next === 'single') {
+      const firstCorrect = options.findIndex((o) => o.isCorrect);
+      setOptions((prev) => prev.map((o, idx) => ({ ...o, isCorrect: idx === firstCorrect })));
+    }
+  }
+
   function addOption() {
     if (options.length >= 6) return;
     setOptions([...options, emptyOption()]);
@@ -69,6 +79,10 @@ export default function QuestionForm({ quizId, question, onSaved, onCancel }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    if (type === 'image' && !imageUrl) {
+      setError('Загрузите изображение для этого вопроса');
+      return;
+    }
     setBusy(true);
     const payload = {
       type,
@@ -109,7 +123,7 @@ export default function QuestionForm({ quizId, question, onSaved, onCancel }) {
           <select
             className="input"
             value={answerType}
-            onChange={(e) => setAnswerType(e.target.value)}
+            onChange={(e) => changeAnswerType(e.target.value)}
           >
             <option value="single">Одиночный выбор</option>
             <option value="multiple">Множественный выбор</option>
@@ -149,6 +163,7 @@ export default function QuestionForm({ quizId, question, onSaved, onCancel }) {
             <div key={i} className="flex items-center gap-2">
               <input
                 type={answerType === 'single' ? 'radio' : 'checkbox'}
+                name={answerType === 'single' ? 'correct-option' : undefined}
                 checked={o.isCorrect}
                 onChange={() => toggleCorrect(i)}
                 className="h-4 w-4 accent-brand-600"
